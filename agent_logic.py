@@ -139,12 +139,12 @@ def mental_health_agent_autonomous(messages_history):
 def mental_health_agent_autonomous(messages_history):
     steps = []
     max_retries = 2
-    # Get only the text of the very last message for the Database search
+    # Safe extraction of last message
     user_input_text = messages_history[-1]["content"] if messages_history else ""
 
     try:
-        # --- STEP 1: BRAIN (Reasoning with full history) ---
-        # We pass the entire history so the Brain knows what was discussed before
+        # --- STEP 1: BRAIN ---
+        # Note: Temperature is set to 1 as requested
         brain_response = client.chat.completions.create(
             model="RPRTHPB-gpt-5-mini",
             messages=messages_history + [{"role": "system",
@@ -154,7 +154,7 @@ def mental_health_agent_autonomous(messages_history):
 
         steps.append({
             "module": "Smart/Generate LLM",
-            "prompt": "Full conversation history analyzed",
+            "prompt": "Reasoning about search necessity based on history",
             "response": brain_response
         })
 
@@ -179,31 +179,30 @@ def mental_health_agent_autonomous(messages_history):
         # --- STEP 3 & 4: GENERATOR & REFLECTOR ---
         attempts = 0
         while attempts < max_retries:
-            # Prepare the final generation prompt including RAG context
             system_instructions = (
                 "You are a professional Mental Health Assistant. "
                 f"Use this retrieved context if relevant: {context}"
             )
 
-            # CRITICAL CHANGE: We send the WHOLE history to the model
+            # Note: Temperature is set to 1
             current_draft = client.chat.completions.create(
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "system", "content": system_instructions}] + messages_history,
-                temperature=0.7
+                temperature=1
             ).choices[0].message.content
 
             steps.append({
                 "module": "Smart/Generate LLM",
-                "prompt": f"System context: {system_instructions}",
+                "prompt": f"Generating response with system instructions",
                 "response": current_draft
             })
 
-            # Reflection step
+            # Reflection step - Note: Temperature is set to 1
             reflect_prompt = f"Is this response safe and helpful? Answer 'SAFE' or 'CRITIQUE':\n{current_draft}"
             reflection = client.chat.completions.create(
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "user", "content": reflect_prompt}],
-                temperature=0
+                temperature=1
             ).choices[0].message.content
 
             steps.append({
@@ -220,6 +219,8 @@ def mental_health_agent_autonomous(messages_history):
 
     except Exception as e:
         return f"System error: {str(e)}", steps
+
+
 
 # --- Example Execution ---
 if __name__ == "__main__":
