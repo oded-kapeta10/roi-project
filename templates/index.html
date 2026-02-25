@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Control Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f9; font-family: 'Arial', sans-serif; }
+        .chat-container { max-width: 1000px; margin: 40px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }
+        .step-card { border-left: 4px solid #007bff; margin-bottom: 15px; background: #fdfdfd; }
+        .module-label { font-weight: bold; color: #007bff; text-transform: uppercase; font-size: 0.9rem; }
+        pre { background: #2b2b2b; color: #e6e6e6; padding: 12px; border-radius: 6px; font-size: 0.85rem; overflow-x: auto; }
+        .final-res-box { background-color: #e9f7ef; border: 1px solid #d4edda; color: #155724; padding: 15px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container chat-container">
+        <h2 class="mb-4">Autonomous AI Agent GUI</h2>
+
+        <div class="mb-3">
+            <label for="userPrompt" class="form-label">Enter your task or question:</label>
+            <textarea class="form-control" id="userPrompt" rows="4" placeholder="e.g., Explain Transformer FFN layer..."></textarea>
+        </div>
+
+        <button class="btn btn-primary btn-lg w-100 mb-4" id="runBtn" onclick="runAgent()">Run Agent</button>
+
+        <div id="resultArea" style="display: none;">
+            <h4>Final Agent Response</h4>
+            <div class="final-res-box mb-4" id="finalResponse"></div>
+
+            <hr>
+
+            <h4>Execution Trace (Steps)</h4>
+            <div id="stepsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        async function runAgent() {
+            const prompt = document.getElementById('userPrompt').value;
+            const btn = document.getElementById('runBtn');
+            const resultArea = document.getElementById('resultArea');
+            const stepsContainer = document.getElementById('stepsContainer');
+            const finalResponse = document.getElementById('finalResponse');
+
+            if (!prompt) return alert("Please enter a prompt.");
+
+            btn.disabled = true;
+            btn.innerText = "Agent is working...";
+            resultArea.style.display = 'none';
+            stepsContainer.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    finalResponse.innerText = data.response;
+
+                    // Render individual steps from the trace [cite: 102]
+                    data.steps.forEach(step => {
+                        const card = document.createElement('div');
+                        card.className = 'card step-card p-3 shadow-sm';
+                        card.innerHTML = `
+                            <div class="module-label">Module: ${step.module}</div>
+                            <div class="mt-2"><strong>Prompt:</strong></div>
+                            <pre>${JSON.stringify(step.prompt, null, 2)}</pre>
+                            <div><strong>Response:</strong></div>
+                            <pre>${JSON.stringify(step.response, null, 2)}</pre>
+                        `;
+                        stepsContainer.appendChild(card);
+                    });
+
+                    resultArea.style.display = 'block';
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Communication error with the server.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Run Agent";
+            }
+        }
+    </script>
+</body>
+</html>

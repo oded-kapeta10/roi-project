@@ -7,18 +7,11 @@ from agent_logic import mental_health_agent_autonomous
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/', methods=['GET'])
+from flask import render_template
+
+@app.route('/')
 def index():
-    return jsonify({
-        "message": "Welcome to the Mental Health AI Agent API",
-        "endpoints": {
-            "team_info": "/api/team_info",
-            "agent_info": "/api/agent_info",
-            "model_architecture": "/api/model_architecture",
-            "execute": "/api/execute (POST)"
-        },
-        "status": "online"
-    })
+    return render_template('index.html')
 
 # --- Mandatory Endpoint 1: Team Info ---
 @app.route('/api/team_info', methods=['GET'])
