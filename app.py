@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import io
+import os
+
 from agent_logic import mental_health_agent_autonomous
 app = Flask(__name__)
 CORS(app)
@@ -116,5 +118,9 @@ def execute_agent():
         }), 500
 
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+
+if __name__ == "__main__":
+    # Render מספקת את הפורט דרך משתנה סביבה. אם הוא לא קיים, נשתמש ב-5000
+    port = int(os.environ.get("PORT", 5000))
+    # חשוב מאוד: ה-host חייב להיות 0.0.0.0
+    app.run(host="0.0.0.0", port=port)
