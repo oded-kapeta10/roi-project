@@ -136,6 +136,91 @@ def mental_health_agent_autonomous(messages_history):
         return "System error. Please try again.", steps
 
 
+def mental_health_agent_autonomous(messages_history):
+    steps = []
+    max_retries = 2
+    # Get only the text of the very last message for the Database search
+    user_input_text = messages_history[-1]["content"] if messages_history else ""
+
+    try:
+        # --- STEP 1: BRAIN (Reasoning with full history) ---
+        # We pass the entire history so the Brain knows what was discussed before
+        brain_response = client.chat.completions.create(
+            model="RPRTHPB-gpt-5-mini",
+            messages=messages_history + [{"role": "system",
+                                          "content": "Task: Decide if you need to search professional advice. Format: Thought: <reasoning> Decision: <SEARCH or ANSWER>"}],
+            temperature=1
+        ).choices[0].message.content
+
+        steps.append({
+            "module": "Smart/Generate LLM",
+            "prompt": "Full conversation history analyzed",
+            "response": brain_response
+        })
+
+        # --- STEP 2: KNOWLEDGE BASE ---
+        context = ""
+        is_search_needed = "DECISION: SEARCH" in brain_response.upper()
+
+        if is_search_needed:
+            context = retrieve_context(user_input_text)
+            steps.append({
+                "module": "Database",
+                "prompt": user_input_text,
+                "response": "Observation: Context retrieved from vector store."
+            })
+        else:
+            steps.append({
+                "module": "Database",
+                "prompt": user_input_text,
+                "response": "Observation: Search skipped."
+            })
+
+        # --- STEP 3 & 4: GENERATOR & REFLECTOR ---
+        attempts = 0
+        while attempts < max_retries:
+            # Prepare the final generation prompt including RAG context
+            system_instructions = (
+                "You are a professional Mental Health Assistant. "
+                f"Use this retrieved context if relevant: {context}"
+            )
+
+            # CRITICAL CHANGE: We send the WHOLE history to the model
+            current_draft = client.chat.completions.create(
+                model="RPRTHPB-gpt-5-mini",
+                messages=[{"role": "system", "content": system_instructions}] + messages_history,
+                temperature=0.7
+            ).choices[0].message.content
+
+            steps.append({
+                "module": "Smart/Generate LLM",
+                "prompt": f"System context: {system_instructions}",
+                "response": current_draft
+            })
+
+            # Reflection step
+            reflect_prompt = f"Is this response safe and helpful? Answer 'SAFE' or 'CRITIQUE':\n{current_draft}"
+            reflection = client.chat.completions.create(
+                model="RPRTHPB-gpt-5-mini",
+                messages=[{"role": "user", "content": reflect_prompt}],
+                temperature=0
+            ).choices[0].message.content
+
+            steps.append({
+                "module": "Reflect LLM",
+                "prompt": reflect_prompt,
+                "response": reflection
+            })
+
+            if "SAFE" in reflection.upper():
+                return current_draft, steps
+            attempts += 1
+
+        return "I apologize, but I am having trouble. Please consult a professional.", steps
+
+    except Exception as e:
+        return f"System error: {str(e)}", steps
+
 # --- Example Execution ---
 if __name__ == "__main__":
     # --- Example Execution ---
