@@ -37,58 +37,69 @@
     </div>
 
     <script>
-        async function runAgent() {
-            const prompt = document.getElementById('userPrompt').value;
-            const btn = document.getElementById('runBtn');
-            const resultArea = document.getElementById('resultArea');
-            const stepsContainer = document.getElementById('stepsContainer');
-            const finalResponse = document.getElementById('finalResponse');
+        // Variable to store the ongoing conversation history
+let chatHistory = [];
 
-            if (!prompt) return alert("Please enter a prompt.");
+async function runAgent() {
+    const promptInput = document.getElementById('userPrompt');
+    const prompt = promptInput.value;
+    const btn = document.getElementById('runBtn');
+    const stepsContainer = document.getElementById('stepsContainer');
+    const finalResponse = document.getElementById('finalResponse');
+    const resultArea = document.getElementById('resultArea');
 
-            btn.disabled = true;
-            btn.innerText = "Agent is working...";
-            resultArea.style.display = 'none';
+    if (!prompt) return alert("Please enter a message.");
+
+    // Disable UI during processing
+    btn.disabled = true;
+    btn.innerText = "Thinking...";
+
+    // Add user message to history
+    chatHistory.push({ role: "user", content: prompt });
+
+    try {
+        const response = await fetch('/api/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // Sending the FULL history instead of just one prompt
+            body: JSON.stringify({
+                prompt: prompt,
+                history: chatHistory
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'ok') {
+            // Display response
+            resultArea.style.display = 'block';
+            finalResponse.innerText = data.response;
+
+            // Add assistant response to history for next turn
+            chatHistory.push({ role: "assistant", content: data.response });
+
+            // Clear input for next message
+            promptInput.value = '';
+
+            // Render steps (trace)
             stepsContainer.innerHTML = '';
-
-            try {
-                const response = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt })
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'ok') {
-                    finalResponse.innerText = data.response;
-
-                    // Render individual steps from the trace [cite: 102]
-                    data.steps.forEach(step => {
-                        const card = document.createElement('div');
-                        card.className = 'card step-card p-3 shadow-sm';
-                        card.innerHTML = `
-                            <div class="module-label">Module: ${step.module}</div>
-                            <div class="mt-2"><strong>Prompt:</strong></div>
-                            <pre>${JSON.stringify(step.prompt, null, 2)}</pre>
-                            <div><strong>Response:</strong></div>
-                            <pre>${JSON.stringify(step.response, null, 2)}</pre>
-                        `;
-                        stepsContainer.appendChild(card);
-                    });
-
-                    resultArea.style.display = 'block';
-                } else {
-                    alert("Error: " + data.error);
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Communication error with the server.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Run Agent";
-            }
+            data.steps.forEach(step => {
+                const card = document.createElement('div');
+                card.className = 'card step-card p-3 shadow-sm mb-2';
+                card.innerHTML = `
+                    <div class="module-label">Module: ${step.module}</div>
+                    <pre class="mt-2">${JSON.stringify(step.response, null, 2)}</pre>
+                `;
+                stepsContainer.appendChild(card);
+            });
         }
+    } catch (err) {
+        alert("Connection error.");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "Send Message";
+    }
+}
     </script>
 </body>
 </html>

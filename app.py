@@ -73,27 +73,17 @@ def get_architecture():
 
 # --- D) POST /api/execute [cite: 63] ---
 @app.route('/api/execute', methods=['POST'])
-@app.route('/api/execute', methods=['POST'])
 def execute_agent():
+    data = request.json
+    user_prompt = data.get('prompt')
+
+    # Extract history from the JSON body.
+    # If not provided, fall back to a single message list.
+    history = data.get('history', [{"role": "user", "content": user_prompt}])
+
     try:
-        data = request.json
-
-        # Check if the input contains a 'messages' list (for back-and-forth conversation)
-        if 'messages' in data and isinstance(data['messages'], list):
-            messages_history = data['messages']
-        # If it only contains a single 'prompt' string (for simple one-off requests)
-        elif 'prompt' in data:
-            messages_history = [{"role": "user", "content": data['prompt']}]
-        else:
-            return jsonify({
-                "status": "error",
-                "error": "Invalid input: 'messages' list or 'prompt' string required.",
-                "response": None,
-                "steps": []
-            }), 400
-
-        # Now we pass the full history to your autonomous logic
-        final_answer, trace_steps = mental_health_agent_autonomous(messages_history)
+        # Pass the entire conversation history to the agent logic
+        final_answer, trace_steps = mental_health_agent_autonomous(history)
 
         return jsonify({
             "status": "ok",
@@ -101,15 +91,13 @@ def execute_agent():
             "response": final_answer,
             "steps": trace_steps
         })
-
     except Exception as e:
         return jsonify({
             "status": "error",
             "error": str(e),
             "response": None,
             "steps": []
-        }), 500
-
+        })
 
 
 if __name__ == "__main__":
