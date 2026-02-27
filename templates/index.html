@@ -1,105 +1,138 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent Control Center</title>
+    <title>MindFulMate</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f9; font-family: 'Arial', sans-serif; }
-        .chat-container { max-width: 1000px; margin: 40px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }
-        .step-card { border-left: 4px solid #007bff; margin-bottom: 15px; background: #fdfdfd; }
-        .module-label { font-weight: bold; color: #007bff; text-transform: uppercase; font-size: 0.9rem; }
-        pre { background: #2b2b2b; color: #e6e6e6; padding: 12px; border-radius: 6px; font-size: 0.85rem; overflow-x: auto; }
-        .final-res-box { background-color: #e9f7ef; border: 1px solid #d4edda; color: #155724; padding: 15px; border-radius: 8px; }
+        :root { --user-bg: #dcf8c6; --agent-bg: #ffffff; --body-bg: #e5ddd5; }
+        body { background-color: var(--body-bg); font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Chat Area */
+        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 75%; padding: 8px 12px; border-radius: 10px; position: relative; font-size: 0.95rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .user { align-self: flex-start; background-color: var(--user-bg); border-top-right-radius: 0; }
+        .agent { align-self: flex-end; background-color: var(--agent-bg); border-top-left-radius: 0; }
+        
+        /* Input Area */
+        .input-area { background: #f0f0f0; padding: 15px; display: flex; gap: 10px; align-items: center; }
+        textarea { border-radius: 20px !important; resize: none; border: none; padding: 10px 15px !important; }
+        
+        /* Trace Area (Collapsible) */
+        .trace-section { background: #fff; border-top: 1px solid #ccc; max-height: 250px; overflow-y: auto; display: none; }
+        .step-card { border-right: 4px solid #007bff; margin: 10px; padding: 10px; background: #f8f9fa; font-size: 0.8rem; }
+        pre { background: #2b2b2b; color: #fff; padding: 8px; border-radius: 5px; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <div class="container chat-container">
-        <h2 class="mb-4">Autonomous AI Agent GUI</h2>
 
-        <div class="mb-3">
-            <label for="userPrompt" class="form-label">Enter your task or question:</label>
-            <textarea class="form-control" id="userPrompt" rows="4" placeholder="e.g., Explain Transformer FFN layer..."></textarea>
-        </div>
+    <div class="bg-primary text-white p-3 shadow-sm d-flex justify-content-between align-items-center">
+        <h5 class="m-0">MindFulMate</h5>
+        <button class="btn btn-outline-light btn-sm" onclick="toggleTrace()">הצג/הסתר Trace</button>
+    </div>
 
-        <button class="btn btn-primary btn-lg w-100 mb-4" id="runBtn" onclick="runAgent()">Run Agent</button>
+    <div id="chat-window">
+        <div class="message agent">Hi, how are you feeling today?</div>
+    </div>
 
-        <div id="resultArea" style="display: none;">
-            <h4>Final Agent Response</h4>
-            <div class="final-res-box mb-4" id="finalResponse"></div>
+    <div id="trace-section" class="trace-section p-3">
+        <h6>Execution Trace (לצורכי בדיקה):</h6>
+        <div id="stepsContainer"></div>
+    </div>
 
-            <hr>
-
-            <h4>Execution Trace (Steps)</h4>
-            <div id="stepsContainer"></div>
-        </div>
+    <div class="input-area">
+        <textarea class="form-control" id="userPrompt" rows="1" placeholder="הקלד/י הודעה..."></textarea>
+        <button class="btn btn-success rounded-circle" id="runBtn" onclick="runAgent()" style="width: 50px; height: 50px;">➔</button>
     </div>
 
     <script>
-        // Variable to store the ongoing conversation history
-let chatHistory = [];
+        let chatHistory = [];
 
-async function runAgent() {
-    const promptInput = document.getElementById('userPrompt');
-    const prompt = promptInput.value;
-    const btn = document.getElementById('runBtn');
-    const stepsContainer = document.getElementById('stepsContainer');
-    const finalResponse = document.getElementById('finalResponse');
-    const resultArea = document.getElementById('resultArea');
+        function toggleTrace() {
+            const ts = document.getElementById('trace-section');
+            ts.style.display = (ts.style.display === 'none' || ts.style.display === '') ? 'block' : 'none';
+        }
 
-    if (!prompt) return alert("Please enter a message.");
+        async function runAgent() {
+            const promptInput = document.getElementById('userPrompt');
+            const prompt = promptInput.value.trim();
+            const btn = document.getElementById('runBtn');
+            const chatWindow = document.getElementById('chat-window');
+            const stepsContainer = document.getElementById('stepsContainer');
 
-    // Disable UI during processing
-    btn.disabled = true;
-    btn.innerText = "Thinking...";
+            if (!prompt) return;
 
-    // Add user message to history
-    chatHistory.push({ role: "user", content: prompt });
+            // 1. הוספת הודעת משתמש למסך
+            appendBubble('user', prompt);
+            promptInput.value = '';
+            btn.disabled = true;
 
-    try {
-        const response = await fetch('/api/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // Sending the FULL history instead of just one prompt
-            body: JSON.stringify({
-                prompt: prompt,
-                history: chatHistory
-            })
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        history: chatHistory.concat([{ role: "user", content: prompt }])
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    // 2. הוספת תשובת הסוכן למסך 
+                    appendBubble('agent', data.response);
+                    
+                    // 3. עדכון היסטוריה
+                    chatHistory.push({ role: "user", content: prompt });
+                    chatHistory.push({ role: "assistant", content: data.response });
+
+                    // 4. עדכון ה-Trace 
+                    renderSteps(data.steps);
+                }
+            } catch (err) {
+                appendBubble('agent', "מצטער, חלה שגיאה בחיבור.");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+                // מאזין למקלדת בתוך תיבת הטקסט
+        document.getElementById('userPrompt').addEventListener('keydown', function(event) {
+            // בודק אם לחצו על Enter
+            if (event.key === 'Enter') {
+                // אם Shift לא לחוץ - שלח הודעה ומנע ירידת שורה
+                if (!event.shiftKey) {
+                    event.preventDefault(); // מונע את ירידת השורה הדיפולטית
+                    runAgent(); // קורא לפונקציה שכבר כתבנו
+                }
+                // אם Shift לחוץ - הוא פשוט ירד שורה כרגיל
+            }
         });
 
-        const data = await response.json();
+        function appendBubble(role, text) {
+            const chatWindow = document.getElementById('chat-window');
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerText = text;
+            chatWindow.appendChild(div);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
 
-        if (data.status === 'ok') {
-            // Display response
-            resultArea.style.display = 'block';
-            finalResponse.innerText = data.response;
-
-            // Add assistant response to history for next turn
-            chatHistory.push({ role: "assistant", content: data.response });
-
-            // Clear input for next message
-            promptInput.value = '';
-
-            // Render steps (trace)
-            stepsContainer.innerHTML = '';
-            data.steps.forEach(step => {
+        function renderSteps(steps) {
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = ''; // ניקוי צעדים קודמים
+            steps.forEach(step => {
                 const card = document.createElement('div');
-                card.className = 'card step-card p-3 shadow-sm mb-2';
+                card.className = 'step-card shadow-sm';
                 card.innerHTML = `
-                    <div class="module-label">Module: ${step.module}</div>
-                    <pre class="mt-2">${JSON.stringify(step.response, null, 2)}</pre>
+                    <strong>Module: ${step.module}</strong> [cite: 103]<br>
+                    <small>Response:</small>
+                    <pre>${typeof step.response === 'object' ? JSON.stringify(step.response, null, 2) : step.response}</pre>
                 `;
-                stepsContainer.appendChild(card);
+                container.appendChild(card);
             });
         }
-    } catch (err) {
-        alert("Connection error.");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "Send Message";
-    }
-}
     </script>
 </body>
 </html>
