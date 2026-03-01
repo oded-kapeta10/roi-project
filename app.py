@@ -92,9 +92,16 @@ def execute_agent():
             "steps": trace_steps
         })
     except Exception as e:
+        error_msg = str(e)
+        # Check if the error is related to safety filters
+        if "content_policy_violation" in error_msg.lower() or "ResponsibleAI" in error_msg:
+            friendly_error = "I'm sorry, but I cannot fulfill this request due to safety policy restrictions. Please reach out to professional help if you are in distress."
+        else:
+            friendly_error = "A system error occurred. Please try again later."
+
         return jsonify({
             "status": "error",
-            "error": str(e),
+            "error": friendly_error,
             "response": None,
             "steps": []
         })
