@@ -70,61 +70,55 @@
             ts.style.display = (ts.style.display === 'none' || ts.style.display === '') ? 'block' : 'none';
         }
 
-        async function runAgent() {
-            const promptInput = document.getElementById('userPrompt');
-            const prompt = promptInput.value.trim();
-            const btn = document.getElementById('runBtn');
-            const chatWindow = document.getElementById('chat-window');
-            const stepsContainer = document.getElementById('stepsContainer');
+       async function runAgent() {
+    const promptInput = document.getElementById('userPrompt');
+    const prompt = promptInput.value.trim();
+    const btn = document.getElementById('runBtn');
+    const chatWindow = document.getElementById('chat-window');
 
-            if (!prompt) return;
+    if (!prompt) return;
 
-            // 1. הוספת הודעת משתמש למסך
-            appendBubble('user', prompt);
-            promptInput.value = '';
-            btn.disabled = true;
+    // 1. הוספת הודעת משתמש
+    appendBubble('user', prompt);
+    promptInput.value = '';
+    btn.disabled = true;
 
-            try {
-                const response = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: prompt,
-                        history: chatHistory.concat([{ role: "user", content: prompt }])
-                    })
-                });
+    // 2. יצירת אלמנט "הסוכן מקליד"
+    const typingIndicator = document.createElement('div');
+    typingIndicator.className = 'typing shadow-sm';
+    typingIndicator.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+    typingIndicator.id = 'loading-indicator';
+    chatWindow.appendChild(typingIndicator);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
 
-                const data = await response.json();
-
-                if (data.status === 'ok') {
-                    // 2. הוספת תשובת הסוכן למסך 
-                    appendBubble('agent', data.response);
-                    
-                    // 3. עדכון היסטוריה
-                    chatHistory.push({ role: "user", content: prompt });
-                    chatHistory.push({ role: "assistant", content: data.response });
-
-                    // 4. עדכון ה-Trace 
-                    renderSteps(data.steps);
-                }
-            } catch (err) {
-                appendBubble('agent', "מצטער, חלה שגיאה בחיבור.");
-            } finally {
-                btn.disabled = false;
-            }
-        }
-                // מאזין למקלדת בתוך תיבת הטקסט
-        document.getElementById('userPrompt').addEventListener('keydown', function(event) {
-            // בודק אם לחצו על Enter
-            if (event.key === 'Enter') {
-                // אם Shift לא לחוץ - שלח הודעה ומנע ירידת שורה
-                if (!event.shiftKey) {
-                    event.preventDefault(); // מונע את ירידת השורה הדיפולטית
-                    runAgent(); // קורא לפונקציה שכבר כתבנו
-                }
-                // אם Shift לחוץ - הוא פשוט ירד שורה כרגיל
-            }
+    try {
+        const response = await fetch('/api/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: prompt,
+                history: chatHistory.concat([{ role: "user", content: prompt }])
+            })
         });
+
+        const data = await response.json();
+
+        // הסרת חיווי הטעינה
+        document.getElementById('loading-indicator').remove();
+
+        if (data.status === 'ok') {
+            appendBubble('agent', data.response); // הצגת התשובה הסופית [cite: 101]
+            chatHistory.push({ role: "user", content: prompt });
+            chatHistory.push({ role: "assistant", content: data.response });
+            renderSteps(data.steps); // הצגת ה-trace [cite: 102]
+        }
+    } catch (err) {
+        if (document.getElementById('loading-indicator')) document.getElementById('loading-indicator').remove();
+        appendBubble('agent', "Error: Could not connect to the agent.");
+    } finally {
+        btn.disabled = false;
+    }
+}
 
         function appendBubble(role, text) {
             const chatWindow = document.getElementById('chat-window');
