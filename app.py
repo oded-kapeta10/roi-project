@@ -5,6 +5,7 @@ import os
 
 from agent_logic import mental_health_agent_autonomous
 app = Flask(__name__)
+app.json.sort_keys = False #Making sure that the JSON keys are returned in the requested order
 CORS(app)
 
 from flask import render_template
