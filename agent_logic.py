@@ -39,13 +39,11 @@ def mental_health_agent_autonomous(messages_history):
     # Safe extraction of last message
     user_input_text = messages_history[-1]["content"] if messages_history else ""
 
-    try:
         # --- STEP 1: BRAIN ---
-        # Note: Temperature is set to 1 as requested
         brain_response = client.chat.completions.create(
             model="RPRTHPB-gpt-5-mini",
             messages=messages_history + [{"role": "system",
-                                          "content": "Task: Decide if you need to search professional advice. Format: Thought: <reasoning> Decision: <SEARCH or ANSWER>"}],
+                                          "content": "Task: Decide if you need to seek professional advice. Format: Thought: <reasoning> Decision: <SEARCH or ANSWER>"}],
             temperature=1
         ).choices[0].message.content
 
@@ -114,15 +112,6 @@ def mental_health_agent_autonomous(messages_history):
 
         return "I apologize, but I am having trouble. Please consult a professional.", steps
 
-    except Exception as e:
-        error_msg = str(e)
-        # Check if it's a safety/policy error from the API
-        if "content_policy_violation" in error_msg or "ResponsibleAI" in error_msg:
-            friendly_message = "I cannot fulfill this request due to safety policy restrictions. If you are in distress, please contact professional help."
-        else:
-            friendly_message = f"A system error occurred: {error_msg}"
-
-        return friendly_message, steps
 
 
 
