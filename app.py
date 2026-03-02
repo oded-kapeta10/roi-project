@@ -105,13 +105,11 @@ def execute_agent():
         return jsonify({
             "status": "error",
             "error": friendly_error,
-            "response": friendly_error,  # We put it here too just in case the UI reads 'response'
+            "response": None,
             "steps": []
         })
 
 
 if __name__ == "__main__":
-    # Render מספקת את הפורט דרך משתנה סביבה. אם הוא לא קיים, נשתמש ב-5000
     port = int(os.environ.get("PORT", 5000))
-    # חשוב מאוד: ה-host חייב להיות 0.0.0.0
     app.run(host="0.0.0.0", port=port)
