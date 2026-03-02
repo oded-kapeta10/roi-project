@@ -22,7 +22,7 @@ def get_team_info():
     """
     return jsonify({
         "group_batch_order_number": "Batch3_Order5",  # Update with your specific batch/order
-        "team_name": "ROI",
+        "team_name": "איתי דוידוביץ גרוס + רונה לביא + עודד קפה",
         "students": [
             {"name": "Oded Kapeta", "email": "odedkapeta@campus.technion.ac.il"},
             {"name": "Rona Lavi", "email": "rona.lavi@campus.technion.ac.il"},
