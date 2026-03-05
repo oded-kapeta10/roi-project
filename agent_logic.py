@@ -13,25 +13,13 @@ LLMOD_API_KEY = os.getenv("LLMOD_API_KEY")
 LLMOD_BASE_URL = "https://api.llmod.ai/v1"
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
-SAFE_CHANNELS = {
-    "THERAPY": [
-        "UC9Yd6X-7Pz_F_J7vR6gX86Q", # Therapy in a Nutshell
-        "UCzBYOHyEEzlkRdDOSobbpvw", # Kati Morton
-        "UCl8TEoIOnMq_5ntJOYMq-Zg", # Dr. Julie Smith
-        "UC_zQoiPtBDvsThGroagm3ww"  # Psych Hub
-    ],
-    "MEDITATION": [
-        "UCisQYxK8L6v_9_oM7W1t6uA", # Headspace
-        "UCOY83Z7f_N0o0Tz96_H6FkA", # Great Meditation
-        "UCvYVvA5Hn9nS6S_GgXv6gkA"  # Psych2Go (Calming visuals)
-    ],
-    "MUSIC": [
-        "UC_z679N2K_T5L1S5XG0A6Jg", # Soothing Relaxation
-        "UC_SjW7NIdYm2y8p_qX8U_pA", # Yellow Brick Cinema
-        "UCSJ4gkVC6NrvII8umztf0Ow"  # Lofi Girl
-    ]
+// Checked that those are valid channels
+PREFERRED_CHANNELS = {
+    "THERAPY": ["UC9Yd6X-7Pz_F_J7vR6gX86Q", "UCzBYOHyEEzlkRdDOSobbpvw", "UCl8TEoIOnMq_5ntJOYMq-Zg", "UC_zQoiPtBDvsThGroagm3ww"],
+    "MEDITATION": ["UCisQYxK8L6v_9_oM7W1t6uA", "UCOY83Z7f_N0o0Tz96_H6FkA", "UCvYVvA5Hn9nS6S_GgXv6gkA"],
+    "MUSIC": ["UC_z679N2K_T5L1S5XG0A6Jg", "UC_SjW7NIdYm2y8p_qX8U_pA", "UCSJ4gkVC6NrvII8umztf0Ow"]
 }
-ALL_SAFE_IDS = [idx for cat in SAFE_CHANNELS.values() for idx in cat]
+ALL_PREFERRED_IDS = [idx for cat in PREFERRED_CHANNELS.values() for idx in cat]
 
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
@@ -52,39 +40,59 @@ def retrieve_context(user_query):
     contexts = [match['metadata']['response'] for match in results['matches']]
     return "\n---\n".join(contexts)
 
+def verify_video_metadata(title, description, channel_id):
+    """
+    Check if a video is safe. If it is from the PREFERRED_CHANNELS, then it's safe; otherwise, the reflect LLM checks its metadata to decide.
+    """
+    if channel_id in ALL_PREFERRED_IDS:
+        return True, "Verified Source"
 
-def search_youtube_safely(query):
-
-    if not YOUTUBE_API_KEY:
-        return None
+    check_prompt = (
+        f"Analyze this YouTube video for a mental health assistant.\n"
+        f"Title: {title}\n"
+        f"Description: {description}\n\n"
+        "Criteria for SAFE:\n"
+        "- Content is professional, supportive, and evidence-based.\n"
+        "- No harmful, pseudo-scientific, or triggering advice.\n"
+        "Answer ONLY 'SAFE' or 'UNSAFE'."
+    )
+    
+    try:
+        response = client.chat.completions.create(
+            model="RPRTHPB-gpt-5-mini",
+            messages=[{"role": "user", "content": check_prompt}],
+            temperature=0
+        ).choices[0].message.content
+        return "SAFE" in response.upper(), "LLM-Validated"
+    except:
+        return False, "Validation Error"
+        
+def search_youtube_autonomously(query):
+    if not os.getenv("YOUTUBE_API_KEY"): return None
     
     url = "https://www.googleapis.com/youtube/v3/search"
-    params = {
-        "part": "snippet",
-        "q": query,          
-        "maxResults": 10,    
-        "type": "video",
-        "key": YOUTUBE_API_KEY
-    }
+    params = {"part": "snippet", "q": query, "maxResults": 10, "type": "video", "key": os.getenv("YOUTUBE_API_KEY")}
     
     try:
         response = requests.get(url, params=params).json()
         if "items" in response:
             for item in response["items"]:
+                title = item["snippet"]["title"]
+                desc = item["snippet"]["description"]
                 channel_id = item["snippet"]["channelId"]
-                # בדיקה האם הערוץ נמצא ברשימה הלבנה
-                if channel_id in SAFE_CHANNELS:
-                    video_id = item["id"]["videoId"]
-                    title = item["snippet"]["title"]
+                
+                is_safe, method = verify_video_metadata(title, desc, channel_id)
+                
+                if is_safe:
                     return {
-                        "url": f"https://www.youtube.com/watch?v={video_id}", 
+                        "url": f"https://www.youtube.com/watch?v={item['id']['videoId']}", 
                         "title": title,
-                        "channel": item["snippet"]["channelTitle"]
+                        "channel": item["snippet"]["channelTitle"],
+                        "v_method": method
                     }
     except Exception as e:
-        print(f"YouTube API Error: {e}")
         return None
-    return None
+    return NoneNone
 
 
 def mental_health_agent_autonomous(messages_history):
@@ -126,61 +134,34 @@ def mental_health_agent_autonomous(messages_history):
                 "prompt": user_input_text,
                 "response": "Observation: Professional context retrieved from vector store."
             })
-        
         elif "SEARCH_MEDIA" in brain_response.upper():
-            # --- CHANGE START: Intent Categorization ---
             category_prompt = (
-                f"User is feeling: '{user_input_text}'. "
-                "Select the best media category to help them: \n"
-                "- THERAPY: For coping skills, CBT, or psychological explanations.\n"
-                "- MEDITATION: For breathing exercises, mindfulness, or grounding.\n"
-                "- MUSIC: For calming instrumental or ambient background music.\n"
-                "Return ONLY the category name."
+                f"User is feeling: '{user_input_text}'. Select: THERAPY, MEDITATION, or MUSIC."
             )
-            
             selected_category = client.chat.completions.create(
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "user", "content": category_prompt}]
             ).choices[0].message.content
-
-            steps.append({
-                "module": "Smart/Generate LLM",
-                "prompt": "Categorizing media intent",
-                "response": f"Selected Category: {selected_category}"
-            })
-
-            # התאמת השאילתה לקטגוריה שנבחרה
-            search_query_prompt = (
-                f"Create a professional YouTube search query for the category '{selected_category}' "
-                f"that specifically addresses: '{user_input_text}'. Give me ONLY the search query."
-            )
+            
+            search_query_prompt = f"Create a YouTube query for {selected_category} helping with: {user_input_text}."
             search_query = client.chat.completions.create(
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "user", "content": search_query_prompt}]
             ).choices[0].message.content
-            
-            steps.append({
-                "module": "Smart/Generate LLM",
-                "prompt": search_query_prompt,
-                "response": f"Generated Query: {search_query}"
-            })
 
-            media_data = search_youtube_safely(search_query)
+            media_data = search_youtube_autonomously(search_query)
+            
             if media_data:
                 media_link = media_data["url"]
-                context = f"Recommended Video: '{media_data['title']}' from professional channel '{media_data['channel']}'. Link: {media_link}"
+                context = f"Recommended: '{media_data['title']}' (Source: {media_data['channel']}, Method: {media_data['v_method']}). Link: {media_link}"
                 steps.append({
-                    "module": "Smart/Generate LLM",
+                    "module": "YouTube Tool",
                     "prompt": search_query,
-                    "response": f"Observation: Found safe video - {media_data['title']}, Link: {media_link}"
+                    "response": f"Found video: {media_data['title']} ({media_data['v_method']})"
                 })
             else:
-                context = "No safe professional videos found for this specific query."
-                steps.append({
-                    "module": "Smart/Generate LLM",
-                    "prompt": search_query,
-                    "response": "Observation: No matching safe content found."
-                })
+                context = "No sufficiently safe media found."
+                steps.append({"module": "YouTube Tool", "prompt": search_query, "response": "No safe content found."})
 
         # --- STEP 3 & 4: GENERATOR & REFLECTOR ---
         attempts = 0
