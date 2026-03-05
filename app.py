@@ -14,7 +14,7 @@ from flask import render_template
 def index():
     return render_template('index.html')
 
-@app.get("/health")
+@app.route('/api/health', methods=['GET'])
 def health_check():
     return {"status": "alive", "version": "1.0.1"}
 
