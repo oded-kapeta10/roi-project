@@ -13,7 +13,7 @@ LLMOD_API_KEY = os.getenv("LLMOD_API_KEY")
 LLMOD_BASE_URL = "https://api.llmod.ai/v1"
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
-// Checked that those are valid channels
+# Checked that those are valid channels
 PREFERRED_CHANNELS = {
     "THERAPY": ["UC9Yd6X-7Pz_F_J7vR6gX86Q", "UCzBYOHyEEzlkRdDOSobbpvw", "UCl8TEoIOnMq_5ntJOYMq-Zg", "UC_zQoiPtBDvsThGroagm3ww"],
     "MEDITATION": ["UCisQYxK8L6v_9_oM7W1t6uA", "UCOY83Z7f_N0o0Tz96_H6FkA", "UCvYVvA5Hn9nS6S_GgXv6gkA"],
@@ -92,7 +92,7 @@ def search_youtube_autonomously(query):
                     }
     except Exception as e:
         return None
-    return NoneNone
+    return None
 
 
 def mental_health_agent_autonomous(messages_history):
