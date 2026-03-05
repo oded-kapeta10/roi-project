@@ -22,6 +22,8 @@ SAFE_CHANNELS = [
     "UCvYVvA5Hn9nS6S_GgXv6gkA", # Psych2Go
     "UCisQYxK8L6v_9_oM7W1t6uA", # Headspace
     "UCh6HDKcLwJioBBRSprqfezA"  # The Anxiety Guy
+    "UC_SjW7NIdYm2y8p_qX8U_pA", # Yellow Brick Cinema (Music)
+    "UC_z679N2K_T5L1S5XG0A6Jg"  # Soothing Relaxation (Music)
 ]
     
 pc = Pinecone(api_key=PINECONE_API_KEY)
