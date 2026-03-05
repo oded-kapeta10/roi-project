@@ -143,7 +143,13 @@ def mental_health_agent_autonomous(messages_history):
                 messages=[{"role": "user", "content": category_prompt}]
             ).choices[0].message.content
             
-            search_query_prompt = f"Create a YouTube query for {selected_category} helping with: {user_input_text}."
+            search_query_prompt = (
+                f"The user is feeling: '{user_input_text}'. "
+                f"Act as a person searching YouTube for {selected_category} content. "
+                "Create a VERY SHORT search query (3-5 words max). "
+                "Examples: 'calming lofi stress', '5 minute breathing exercise', 'anxiety relief music'. "
+                "Give me ONLY the search query text."
+            )
             search_query = client.chat.completions.create(
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "user", "content": search_query_prompt}]
