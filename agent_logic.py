@@ -13,19 +13,26 @@ LLMOD_API_KEY = os.getenv("LLMOD_API_KEY")
 LLMOD_BASE_URL = "https://api.llmod.ai/v1"
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
-SAFE_CHANNELS = [
-    "UC9Yd6X-7Pz_F_J7vR6gX86Q", # Therapy in a Nutshell (Emma McAdam)
-    "UCzBYOHyEEzlkRdDOSobbpvw", # Kati Morton
-    "UCl8TEoIOnMq_5ntJOYMq-Zg", # Dr. Julie Smith
-    "UClHVl2N3jPEbkNJVx-ItQIQ", # HealthyGamerGG (Dr. K)
-    "UC_zQoiPtBDvsThGroagm3ww", # Psych Hub
-    "UCvYVvA5Hn9nS6S_GgXv6gkA", # Psych2Go
-    "UCisQYxK8L6v_9_oM7W1t6uA", # Headspace
-    "UCh6HDKcLwJioBBRSprqfezA"  # The Anxiety Guy
-    "UC_SjW7NIdYm2y8p_qX8U_pA", # Yellow Brick Cinema (Music)
-    "UC_z679N2K_T5L1S5XG0A6Jg"  # Soothing Relaxation (Music)
-]
-    
+SAFE_CHANNELS = {
+    "THERAPY": [
+        "UC9Yd6X-7Pz_F_J7vR6gX86Q", # Therapy in a Nutshell
+        "UCzBYOHyEEzlkRdDOSobbpvw", # Kati Morton
+        "UCl8TEoIOnMq_5ntJOYMq-Zg", # Dr. Julie Smith
+        "UC_zQoiPtBDvsThGroagm3ww"  # Psych Hub
+    ],
+    "MEDITATION": [
+        "UCisQYxK8L6v_9_oM7W1t6uA", # Headspace
+        "UCOY83Z7f_N0o0Tz96_H6FkA", # Great Meditation
+        "UCvYVvA5Hn9nS6S_GgXv6gkA"  # Psych2Go (Calming visuals)
+    ],
+    "MUSIC": [
+        "UC_z679N2K_T5L1S5XG0A6Jg", # Soothing Relaxation
+        "UC_SjW7NIdYm2y8p_qX8U_pA", # Yellow Brick Cinema
+        "UCSJ4gkVC6NrvII8umztf0Ow"  # Lofi Girl
+    ]
+}
+ALL_SAFE_IDS = [idx for cat in SAFE_CHANNELS.values() for idx in cat]
+
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
 client = OpenAI(api_key=LLMOD_API_KEY, base_url=LLMOD_BASE_URL)
@@ -121,7 +128,32 @@ def mental_health_agent_autonomous(messages_history):
             })
         
         elif "SEARCH_MEDIA" in brain_response.upper():
-            search_query_prompt = f"Based on the user's distress: '{user_input_text}', what is the best type of video to help them? Give me ONLY the search query."
+            # --- CHANGE START: Intent Categorization ---
+            category_prompt = (
+                f"User is feeling: '{user_input_text}'. "
+                "Select the best media category to help them: \n"
+                "- THERAPY: For coping skills, CBT, or psychological explanations.\n"
+                "- MEDITATION: For breathing exercises, mindfulness, or grounding.\n"
+                "- MUSIC: For calming instrumental or ambient background music.\n"
+                "Return ONLY the category name."
+            )
+            
+            selected_category = client.chat.completions.create(
+                model="RPRTHPB-gpt-5-mini",
+                messages=[{"role": "user", "content": category_prompt}]
+            ).choices[0].message.content
+
+            steps.append({
+                "module": "Smart/Generate LLM",
+                "prompt": "Categorizing media intent",
+                "response": f"Selected Category: {selected_category}"
+            })
+
+            # התאמת השאילתה לקטגוריה שנבחרה
+            search_query_prompt = (
+                f"Create a professional YouTube search query for the category '{selected_category}' "
+                f"that specifically addresses: '{user_input_text}'. Give me ONLY the search query."
+            )
             search_query = client.chat.completions.create(
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "user", "content": search_query_prompt}]
@@ -136,7 +168,7 @@ def mental_health_agent_autonomous(messages_history):
             media_data = search_youtube_safely(search_query)
             if media_data:
                 media_link = media_data["url"]
-                context = f"Recommended Video: '{media_data['title']}'. Link: {media_link}"
+                context = f"Recommended Video: '{media_data['title']}' from professional channel '{media_data['channel']}'. Link: {media_link}"
                 steps.append({
                     "module": "Smart/Generate LLM",
                     "prompt": search_query,
