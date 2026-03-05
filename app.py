@@ -14,6 +14,10 @@ from flask import render_template
 def index():
     return render_template('index.html')
 
+@app.get("/health")
+def health_check():
+    return {"status": "alive", "version": "1.0.1"}
+
 # --- Mandatory Endpoint 1: Team Info ---
 @app.route('/api/team_info', methods=['GET'])
 def get_team_info():
