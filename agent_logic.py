@@ -65,7 +65,8 @@ def verify_video_metadata(title, description, channel_id):
             messages=[{"role": "user", "content": check_prompt}],
             temperature=0
         ).choices[0].message.content
-        return "SAFE" in response.upper(), "LLM-Validated"
+        
+        return "SAFE" in response.upper(), response.strip() 
     except:
         return False, "Validation Error"
         
@@ -80,21 +81,28 @@ def search_youtube_autonomously(query):
         if "items" in response:
             for item in response["items"]:
                 title = item["snippet"]["title"]
-                desc = item["snippet"]["description"]
                 channel_id = item["snippet"]["channelId"]
                 
-                is_safe, method = verify_video_metadata(title, desc, channel_id)
+                is_safe, reason = verify_video_metadata(title, item["snippet"]["description"], channel_id)
+                
+                # תיעוד כל ניסיון
+                attempts_log.append({
+                    "title": title,
+                    "reason": reason,
+                    "status": "SAFE" if is_safe else "UNSAFE"
+                })
                 
                 if is_safe:
                     return {
                         "url": f"https://www.youtube.com/watch?v={item['id']['videoId']}", 
                         "title": title,
                         "channel": item["snippet"]["channelTitle"],
-                        "v_method": method
-                    }
+                        "v_method": reason
+                    }, attempts_log # מחזירים את הסרטון + היומן
     except Exception as e:
-        return None
-    return None
+        return None, [{"error": str(e)}]
+        
+    return None, attempts_log
 
 
 def mental_health_agent_autonomous(messages_history):
@@ -167,8 +175,12 @@ def mental_health_agent_autonomous(messages_history):
                 "response": f"Generated Query: {search_query}"
             })
 
-            media_data = search_youtube_autonomously(search_query)
-            
+            media_data, attempts_log = search_youtube_autonomously(search_query)
+            steps.append({
+                "module": "YouTube Tool Debug",
+                "prompt": f"Analyzing candidates for: {search_query}",
+                "response": attempts_log # כאן תראי את כל 10 הסרטונים והסיבות לפסילה
+            })
             if media_data:
                 media_link = media_data["url"]
                 context = f"Recommended: '{media_data['title']}' (Source: {media_data['channel']}, Method: {media_data['v_method']}). Link: {media_link}"
