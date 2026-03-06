@@ -61,7 +61,7 @@ def verify_video_metadata(title, description, channel_id):
         response = client.chat.completions.create(
             model="RPRTHPB-gpt-5-mini",
             messages=[{"role": "user", "content": check_prompt}],
-            temperature=0
+            temperature=1
         ).choices[0].message.content
         return "SAFE" in response.upper(), response.strip() # מחזיר גם את הנימוק
     except Exception as e:
