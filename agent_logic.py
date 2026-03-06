@@ -65,7 +65,7 @@ def verify_video_metadata(title, description, channel_id):
         ).choices[0].message.content
         return "SAFE" in response.upper(), response.strip() # מחזיר גם את הנימוק
     except:
-        return False, "Validation Error"
+        return False, f"API Error: {str(e)}"
         
 def search_youtube_autonomously(query):
     attempts_log = []
