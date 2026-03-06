@@ -64,7 +64,7 @@ def verify_video_metadata(title, description, channel_id):
             temperature=0
         ).choices[0].message.content
         return "SAFE" in response.upper(), response.strip() # מחזיר גם את הנימוק
-    except:
+    except Exception as e:
         return False, f"API Error: {str(e)}"
         
 def search_youtube_autonomously(query):
