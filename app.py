@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import io
 import os
+from datetime import datetime
+import pytz
 
 from agent_logic import mental_health_agent_autonomous
 app = Flask(__name__)
@@ -14,10 +16,18 @@ from flask import render_template
 def index():
     return render_template('index.html')
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return {"status": "alive", "version": "1.0.1"}
+israel_tz = pytz.timezone('Asia/Jerusalem')
+DEPLOY_TIME = datetime.now(israel_tz).strftime("%Y-%m-%d %H:%M:%S")
 
+@app.route('/api/health', methods=['GET'])
+@app.route('/api/health')
+def health():
+    return {
+        "status": "alive",
+        "version": "5.2",
+        "deployed_at": DEPLOY_TIME,
+        "current_server_time": datetime.now(israel_tz).strftime("%Y-%m-%d %H:%M:%S")
+    }
 # --- Mandatory Endpoint 1: Team Info ---
 @app.route('/api/team_info', methods=['GET'])
 def get_team_info():
