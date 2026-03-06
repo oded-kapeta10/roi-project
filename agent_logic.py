@@ -51,9 +51,11 @@ def verify_video_metadata(title, description, channel_id):
         f"Analyze this YouTube video for a mental health assistant.\n"
         f"Title: {title}\n"
         f"Description: {description}\n\n"
-        "Criteria for SAFE:\n"
-        "- Content is professional, supportive, and evidence-based.\n"
-        "- No harmful, pseudo-scientific, or triggering advice.\n"
+        "Criteria for SAFE (Be generous/lenient):\n"
+        "- Is the content generally supportive, kind, or harmless? (Mark SAFE unless it's clearly toxic).\n"
+        "- Is it free from obvious 'trolling', pranks, or dangerous medical misinformation?\n"
+        "- For music/ambient: If it's pleasant and not high-stress, it is SAFE.\n"
+        "- If it seems like a popular/standard video and NOT harmful, mark it SAFE.\n"
         "Answer ONLY 'SAFE' or 'UNSAFE'."
     )
     
@@ -142,7 +144,11 @@ def mental_health_agent_autonomous(messages_history):
                 model="RPRTHPB-gpt-5-mini",
                 messages=[{"role": "user", "content": category_prompt}]
             ).choices[0].message.content
-            
+            steps.append({
+                "module": "Smart/Generate LLM",
+                "prompt": "Deciding on media category",
+                "response": f"Selected Category: {selected_category}"
+            })
             search_query_prompt = (
                 f"The user is feeling: '{user_input_text}'. "
                 f"Act as a person searching YouTube for {selected_category} content. "
@@ -155,6 +161,12 @@ def mental_health_agent_autonomous(messages_history):
                 messages=[{"role": "user", "content": search_query_prompt}]
             ).choices[0].message.content
 
+            steps.append({
+                "module": "Smart/Generate LLM",
+                "prompt": "Generating simplified YouTube query",
+                "response": f"Generated Query: {search_query}"
+            })
+
             media_data = search_youtube_autonomously(search_query)
             
             if media_data:
@@ -165,6 +177,7 @@ def mental_health_agent_autonomous(messages_history):
                     "prompt": search_query,
                     "response": f"Found video: {media_data['title']} ({media_data['v_method']})"
                 })
+                
             else:
                 context = "No sufficiently safe media found."
                 steps.append({"module": "YouTube Tool", "prompt": search_query, "response": "No safe content found."})
@@ -174,7 +187,10 @@ def mental_health_agent_autonomous(messages_history):
         while attempts < max_retries:
             system_instructions = (
                 "You are a professional Mental Health Assistant. "
-                f"Context for this session: {context}"
+                "BE CONCISE. If a media link is provided in the context, share it and explain why it helps. "
+                "If NO media was found (context says 'No safe media found'), do NOT provide long generic lists of songs. "
+                "Instead, apologize briefly and ask the user for a more specific mood or genre."
+                f"\nContext: {context}"
             )
 
             current_draft = client.chat.completions.create(
