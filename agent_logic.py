@@ -54,9 +54,7 @@ def verify_video_metadata(title, description, channel_id):
         "Criteria for SAFE (Be generous/lenient):\n"
         "- Is the content generally supportive, kind, or harmless? (Mark SAFE unless it's clearly toxic).\n"
         "- Is it free from obvious 'trolling', pranks, or dangerous medical misinformation?\n"
-        "- For music/ambient: If it's pleasant and not high-stress, it is SAFE.\n"
-        "- If it seems like a popular/standard video and NOT harmful, mark it SAFE.\n"
-        "Answer ONLY 'SAFE' or 'UNSAFE'."
+        "Answer ONLY 'SAFE' or 'UNSAFE'. If UNSAFE, explain why in 5 words."
     )
     
     try:
@@ -65,31 +63,33 @@ def verify_video_metadata(title, description, channel_id):
             messages=[{"role": "user", "content": check_prompt}],
             temperature=0
         ).choices[0].message.content
-        
-        return "SAFE" in response.upper(), response.strip() 
+        return "SAFE" in response.upper(), response.strip() # מחזיר גם את הנימוק
     except:
         return False, "Validation Error"
         
 def search_youtube_autonomously(query):
-    if not os.getenv("YOUTUBE_API_KEY"): return None
+    attempts_log = []
+    api_key = os.getenv("YOUTUBE_API_KEY")
+    if not api_key: 
+        return None, [{"error": "YOUTUBE_API_KEY is missing from environment"}]
     
     url = "https://www.googleapis.com/youtube/v3/search"
-    params = {"part": "snippet", "q": query, "maxResults": 10, "type": "video", "key": os.getenv("YOUTUBE_API_KEY")}
+    params = {"part": "snippet", "q": query, "maxResults": 10, "type": "video", "key": api_key}
     
     try:
         response = requests.get(url, params=params).json()
         if "items" in response:
             for item in response["items"]:
                 title = item["snippet"]["title"]
+                desc = item["snippet"]["description"]
                 channel_id = item["snippet"]["channelId"]
                 
-                is_safe, reason = verify_video_metadata(title, item["snippet"]["description"], channel_id)
+                is_safe, reason = verify_video_metadata(title, desc, channel_id)
                 
-                # תיעוד כל ניסיון
                 attempts_log.append({
                     "title": title,
-                    "reason": reason,
-                    "status": "SAFE" if is_safe else "UNSAFE"
+                    "status": "SAFE" if is_safe else "UNSAFE",
+                    "reason": reason
                 })
                 
                 if is_safe:
@@ -98,7 +98,8 @@ def search_youtube_autonomously(query):
                         "title": title,
                         "channel": item["snippet"]["channelTitle"],
                         "v_method": reason
-                    }, attempts_log # מחזירים את הסרטון + היומן
+                    }, attempts_log 
+                    
     except Exception as e:
         return None, [{"error": str(e)}]
         
@@ -179,7 +180,7 @@ def mental_health_agent_autonomous(messages_history):
             steps.append({
                 "module": "YouTube Tool Debug",
                 "prompt": f"Analyzing candidates for: {search_query}",
-                "response": attempts_log # כאן תראי את כל 10 הסרטונים והסיבות לפסילה
+                "response": attempts_log 
             })
             if media_data:
                 media_link = media_data["url"]
