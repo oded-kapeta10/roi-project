@@ -6,12 +6,28 @@
     <title>MindFulMate</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-                /* תיקון כיווניות לשמאל עבור אנגלית */
         .message { 
             direction: ltr; 
             text-align: left; 
+            word-break: break-all;
+        }
+            #userPrompt {
+                text-align: left;
+                direction: ltr;
+        }
+        .video-container {
+            margin-top: 10px;
+            width: 100%;
+            max-width: 300px; 
+            aspect-ratio: 16 / 9;
         }
         
+        .video-container iframe {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+                
         /*    (Thinking Indicator) */
         .typing { display: flex; gap: 5px; padding: 10px; align-self: flex-end; background: var(--agent-bg); border-radius: 10px; border-top-left-radius: 0; margin-bottom: 10px; }
         .dot { width: 8px; height: 8px; background: #999; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
@@ -45,7 +61,7 @@
 
     <div class="bg-primary text-white p-3 shadow-sm d-flex justify-content-between align-items-center">
         <h5 class="m-0">MindFulMate</h5>
-        <button class="btn btn-outline-light btn-sm" onclick="toggleTrace()">הצג/הסתר Trace</button>
+        <button class="btn btn-outline-light btn-sm" onclick="toggleTrace()"> Trace</button>
     </div>
 
     <div id="chat-window">
@@ -53,13 +69,13 @@
     </div>
 
     <div id="trace-section" class="trace-section p-3">
-        <h6>Execution Trace (לצורכי בדיקה):</h6>
+        <h6>Execution Trace :</h6>
         <div id="stepsContainer"></div>
     </div>
 
     <div class="input-area">
-        <textarea class="form-control" id="userPrompt" rows="1" placeholder="הקלד/י הודעה..."></textarea>
-        <button class="btn btn-success rounded-circle" id="runBtn" onclick="runAgent()" style="width: 50px; height: 50px;">➔</button>
+    <button class="btn btn-success rounded-circle" id="runBtn" onclick="runAgent()" style="width: 50px; height: 50px;">➔</button>
+    <textarea class="form-control" id="userPrompt" rows="1" placeholder="Type a message..."></textarea>
     </div>
 
     <script>
@@ -78,12 +94,10 @@
 
     if (!prompt) return;
 
-    // 1. הוספת הודעת משתמש
     appendBubble('user', prompt);
     promptInput.value = '';
     btn.disabled = true;
 
-    // 2. יצירת אלמנט "הסוכן מקליד"
     const typingIndicator = document.createElement('div');
     typingIndicator.className = 'typing shadow-sm';
     typingIndicator.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
@@ -103,14 +117,13 @@
 
         const data = await response.json();
 
-        // הסרת חיווי הטעינה
         document.getElementById('loading-indicator').remove();
 
         if (data.status === 'ok') {
-            appendBubble('agent', data.response); // הצגת התשובה הסופית [cite: 101]
+            appendBubble('agent', data.response); 
             chatHistory.push({ role: "user", content: prompt });
             chatHistory.push({ role: "assistant", content: data.response });
-            renderSteps(data.steps); // הצגת ה-trace [cite: 102]
+            renderSteps(data.steps); 
         }
     } catch (err) {
         if (document.getElementById('loading-indicator')) document.getElementById('loading-indicator').remove();
@@ -124,19 +137,38 @@
             const chatWindow = document.getElementById('chat-window');
             const div = document.createElement('div');
             div.className = `message ${role}`;
-            div.innerText = text;
+        
+            const linkify = (rawText) => {
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                return rawText.replace(urlRegex, (url) => {
+                    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+                });
+            };
+        
+            const getYoutubeEmbed = (rawText) => {
+                const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+                const match = rawText.match(ytRegex);
+                if (match && match[1]) {
+                    return `<div class="video-container">
+                                <iframe src="https://www.youtube.com/embed/${match[1]}" frameborder="0" allowfullscreen></iframe>
+                            </div>`;
+                }
+                return '';
+            };
+        
+            div.innerHTML = linkify(text) + getYoutubeEmbed(text); 
+            
             chatWindow.appendChild(div);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
-
         function renderSteps(steps) {
             const container = document.getElementById('stepsContainer');
-            container.innerHTML = ''; // ניקוי צעדים קודמים
+            container.innerHTML = '';
             steps.forEach(step => {
                 const card = document.createElement('div');
                 card.className = 'step-card shadow-sm';
                 card.innerHTML = `
-                    <strong>Module: ${step.module}</strong> [cite: 103]<br>
+                    <strong>Module: ${step.module}</strong> <br>
                     <small>Response:</small>
                     <pre>${typeof step.response === 'object' ? JSON.stringify(step.response, null, 2) : step.response}</pre>
                 `;
