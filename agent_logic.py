@@ -238,10 +238,19 @@ def mental_health_agent_autonomous(messages_history):
 
         return "I'm here for you, but I want to make sure I give you the best possible support. If you're feeling overwhelmed, please speak with a professional.", steps
 
+
     except Exception as e:
+
         error_msg = str(e)
-        steps.append({"module": "Error", "response": error_msg})
-        return f"A system error occurred: {error_msg}", steps
+
+        # Check for safety filter violations (Azure/OpenAI Content Policy)
+
+        if "content_policy_violation" in error_msg.lower() or "responsibleai" in error_msg.lower():
+            friendly_error = "I cannot fulfill this request due to safety policy restrictions. If you are in distress, please contact professional help."
+        else:
+
+            friendly_error = f"A system error occurred: {error_msg}"
+        return friendly_error, steps
 
 
 
