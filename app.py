@@ -45,28 +45,38 @@ def get_team_info():
     })
 
 
-# --- Mandatory Endpoint 2: Agent Info ---
+# ---Endpoint 2: Agent Info ---
 @app.route('/api/agent_info', methods=['GET'])
 def get_agent_info():
     return jsonify({
-        "description": "An autonomous mental health support agent utilizing a ReAct architecture for reasoning and a Reflection loop for safety.",
+        "description": "An autonomous mental health support agent utilizing a ReAct architecture for reasoning, a Reflection loop for safety, and an integrated YouTube search for therapeutic media.",
         "purpose": "To provide empathetic, safe, and context-aware guidance for mental well-being and stress management.",
+        "capabilities": [
+            "Contextual knowledge retrieval (RAG)",
+            "Autonomous YouTube media search & safety validation",
+            "Multi-step reasoning and self-reflection"
+        ],
         "prompt_template": {
             "template": "Input: {user_prompt}\nContext: {history}"
         },
         "prompt_examples": [
             {
-                "prompt": "I'm feeling overwhelmed with my exams at the Technion.",
-                "full_response": "Hi Oded, I'm sorry to hear that. It's very common to feel this way. Let's try a grounding exercise.",
+                "prompt": "I am stressed before my exam, maybe some music could help.",
+                "full_response": "I'm sorry you're feeling stressed. Music can be very grounding. Here is a calming piano track: https://www.youtube.com/watch?v=3NycM9lYdRI. Let's try 3 cycles of deep breathing while it plays.",
                 "steps": [
                     {
-                        "module": "Smart/Generate LLM",
-                        "prompt": "Analyze user stress levels and history.",
-                        "response": "Thought: User is a Technion student. High stress detected. No crisis. Decision: ANSWER."
+                        "module": "Brain (Smart LLM)",
+                        "prompt": "Reasoning about user request.",
+                        "response": "Thought: User is stressed and asks for music. Decision: SEARCH_MEDIA."
+                    },
+                    {
+                        "module": "YouTube Tool",
+                        "prompt": "Query: 'calming piano focus'",
+                        "response": "Found video: 'Calm Piano Music' (Source: Peder B. Helland, Method: LLM-Validated)."
                     },
                     {
                         "module": "Reflect LLM",
-                        "prompt": "Is the response safe?",
+                        "prompt": "Is the final draft safe?",
                         "response": "SAFE"
                     }
                 ]
@@ -75,18 +85,17 @@ def get_agent_info():
     })
 
 
-# --- C) GET /api/model_architecture [cite: 52] ---
+# --- C) GET /api/model_architecture ---
 @app.route('/api/model_architecture', methods=['GET'])
 def get_architecture():
-    # This must return a PNG image[cite: 53, 61].
     # Ensure you have an architecture.png file in your directory.
     try:
-        return send_file('architecture.png', mimetype='image/png')  # [cite: 62]
+        return send_file('architecture.png', mimetype='image/png')  
     except Exception as e:
         return jsonify({"status": "error", "error": "Architecture image not found"}), 404
 
 
-# --- D) POST /api/execute [cite: 63] ---
+# --- D) POST /api/execute  ---
 @app.route('/api/execute', methods=['POST'])
 def execute_agent():
     data = request.json
